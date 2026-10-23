@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# design-tool workspaces (local review captures and caches)
+/.impeccable/
+/.taste-skill/
+
+# python
+__pycache__/

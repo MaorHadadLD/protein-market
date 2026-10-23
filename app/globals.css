@@ -1,26 +1,646 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Protein Market: "the shelf".
+  Chalk wall, white tiles, charcoal ink and one signal red-orange taken from the packs
+  themselves (Grenade's band, Quest's box). Karantina sets the shelf signage, Heebo the rest.
+*/
+@theme {
+  --color-chalk: #f3f2ee;
+  --color-surface: #ffffff;
+  --color-subtle: #e9e7e1;
+  --color-stone: #dedbd3;
+  --color-line: #dcd9d2;
+  --color-line-strong: #c3c0b8;
+  --color-ink: #121315;
+  --color-ink-2: #53565c;
+  --color-ink-hover: #2c2f33;
+  /* Text on the ink footer. */
+  --color-on-ink: #c9c7c1;
+  --color-on-ink-2: #a9a7a1;
+  --color-on-ink-3: #8d8b86;
+  --color-accent: #c8361a;
+  --color-accent-hover: #ad2d14;
+  --color-accent-soft: #f7e2da;
+  /* Featured-story fields, sampled from the two yfood bottles. */
+  --color-coconut: #cfdbe5;
+  --color-hazelnut: #dfe3b9;
+
+  --font-sans: var(--font-heebo), "Arial Hebrew", system-ui, sans-serif;
+  --font-display: var(--font-karantina), var(--font-heebo), "Arial Hebrew", sans-serif;
+
+  /* Signage ramp (Karantina): wordmark, prices, section titles, statements, the footer name. */
+  --text-sign-xs: 1.75rem;
+  --text-sign-xs--line-height: 1;
+  --text-sign-sm: 2rem;
+  --text-sign-sm--line-height: 1;
+  --text-sign-md: 3.5rem;
+  --text-sign-md--line-height: 0.9;
+  --text-sign-lg: 4.5rem;
+  --text-sign-lg--line-height: 0.86;
+  --text-sign-xl: 6rem;
+  --text-sign-xl--line-height: 0.82;
+  --text-sign-max: 14.5rem;
+  --text-sign-max--line-height: 0.78;
+
+  --radius-control: 0.375rem;
+  --radius-card: 0.625rem;
+  --radius-panel: 0.75rem;
+
+  --shadow-raised: 0 2px 6px rgb(18 19 21 / 0.06), 0 14px 36px -12px rgb(18 19 21 / 0.22);
+
+  /* Motion tokens (Emil Kowalski): strong ease-out for UI, ease-in-out for travel, drawer curve. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  /* No smooth scrolling: a jump to the catalog must not scrub the pinned story on the way. */
+  html {
+    scroll-padding-top: 7rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--color-chalk);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    accent-color: var(--color-ink);
+    caret-color: var(--color-accent);
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+  a {
+    text-underline-offset: 0.2em;
+  }
+  button,
+  summary,
+  label {
+    touch-action: manipulation;
+  }
+  input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+  }
+  html {
+    scrollbar-color: var(--color-line-strong) var(--color-chalk);
+  }
+  /* The open cart is modal: the page behind it does not scroll. */
+  html:has(dialog.drawer[open]) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* ---------- Feedback primitives ---------- */
+
+/* Pressables answer the press: fast in, the release snaps back. */
+.press {
+  transition-property: transform, background-color, border-color, color;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+
+/* Mounted by an action (stepper, pills, toast, panel): fade up 4px, interruptible. */
+.enter {
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+/* Flavour change swaps a real photo: short crossfade, masked by a 2px blur. */
+.swap {
+  transition:
+    opacity 220ms ease,
+    filter 220ms ease;
+  @starting-style {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+/* ---------- Hero: the shelf ---------- */
+
+.hero-line {
+  display: block;
+  overflow: clip;
+  /* Room for Hebrew ascenders inside the mask. */
+  padding-block: 0.06em;
+}
+.hero-line > span {
+  display: block;
+  animation: line-up 720ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+@keyframes line-up {
+  from {
+    transform: translateY(108%);
+  }
+}
+
+.hero-copy {
+  animation: rise 600ms var(--ease-out) both;
+  animation-delay: 220ms;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+.shelf-stage {
+  position: relative;
+  aspect-ratio: 358 / 220;
+}
+@media (min-width: 768px) {
+  .shelf-stage {
+    aspect-ratio: 720 / 520;
+  }
+}
+
+/* One product on the shelf: position and size come from per-item custom properties
+   so the phone and desktop compositions are each placed deliberately. */
+.ln {
+  position: absolute;
+  inset-inline-end: var(--x);
+  bottom: var(--b);
+  width: var(--w);
+  z-index: var(--z, 1);
+}
+@media (min-width: 768px) {
+  .ln {
+    inset-inline-end: var(--x-md);
+    bottom: var(--b-md);
+    width: var(--w-md);
+  }
+}
+.ln-mobile-hidden {
+  display: none;
+}
+@media (min-width: 768px) {
+  .ln-mobile-hidden {
+    display: block;
+  }
+}
+/* Parallax wrapper: written directly by HeroShelf (transform only, no React state). */
+.ln-depth {
+  display: block;
+}
+/* Entrance wrapper: the products settle onto the shelf one after another. */
+.ln-rise {
+  display: block;
+  position: relative;
+  animation: settle 700ms var(--ease-out) both;
+  animation-delay: calc(320ms + var(--i, 0) * 60ms);
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+.ln img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 6px 8px rgb(18 19 21 / 0.14));
+}
+/* Contact shadow where the pack meets the shelf. Static blur, never animated. */
+.contact {
+  position: absolute;
+  inset-inline: 10%;
+  bottom: -0.35rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: rgb(18 19 21 / 0.3);
+  filter: blur(7px);
+}
+.ln a:focus-visible {
+  outline-offset: 6px;
+  border-radius: var(--radius-control);
+}
+
+/* ---------- Featured story (desktop, scroll-driven) ---------- */
+
+.feature-scroll {
+  display: none;
+}
+@supports (animation-timeline: view()) {
+  @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+    .feature-scroll {
+      display: block;
+    }
+    .feature-simple {
+      display: none;
+    }
+  }
+}
+
+.feature-scroll {
+  position: relative;
+  height: 340vh;
+  view-timeline: --feature block;
+}
+.feature-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: clip;
+}
+/* Every beat runs on the same timeline: the stretch while the stage is pinned. */
+.beat {
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-timeline: --feature;
+  animation-range: contain 0% contain 100%;
+}
+/* The field is three stacked colour layers crossfaded by opacity (composited, no repaint). */
+.feature-field {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-chalk);
+}
+.feature-field > span {
+  position: absolute;
+  inset: 0;
+}
+.field-coconut {
+  background-color: var(--color-coconut);
+  animation-name: field-coconut;
+}
+.field-hazelnut {
+  background-color: var(--color-hazelnut);
+  animation-name: field-hazelnut;
+}
+.field-rest {
+  background-color: var(--color-subtle);
+  animation-name: field-rest;
+}
+@keyframes field-coconut {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes field-hazelnut {
+  0%,
+  52% {
+    opacity: 0;
+  }
+  64%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes field-rest {
+  0%,
+  76% {
+    opacity: 0;
+  }
+  88%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Bottles: A (coconut) shrinks, B (hazelnut) crossfades over it, then they part. */
+.bottle {
+  position: absolute;
+  inset-inline-start: 50%;
+  bottom: 9vh;
+  /* Capped near the cutout's source height so it is never shown far past its pixels. */
+  height: min(72vh, 500px);
+  aspect-ratio: 392 / 999;
+  translate: 50% 0;
+}
+.bottle img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 14px rgb(18 19 21 / 0.16));
+}
+.bottle .contact {
+  bottom: -0.5rem;
+  height: 1.2rem;
+  filter: blur(9px);
+}
+.bottle-a {
+  animation-name: bottle-a;
+}
+.bottle-b {
+  animation-name: bottle-b;
+}
+@keyframes bottle-a {
+  0% {
+    transform: translateY(3%) scale(1.04);
+  }
+  26%,
+  54% {
+    transform: none;
+    opacity: 1;
+  }
+  64%,
+  76% {
+    transform: none;
+    opacity: 0;
+  }
+  90%,
+  100% {
+    transform: translateX(62%) scale(0.9);
+    opacity: 1;
+  }
+}
+@keyframes bottle-b {
+  0%,
+  54% {
+    transform: none;
+    opacity: 0;
+  }
+  64%,
+  76% {
+    transform: none;
+    opacity: 1;
+  }
+  90%,
+  100% {
+    transform: translateX(-62%) scale(0.9);
+    opacity: 1;
+  }
+}
+.bottle-caption {
+  position: absolute;
+  inset-inline: -40%;
+  top: calc(100% + 1.25rem);
+  text-align: center;
+  animation-name: caption;
+}
+@keyframes caption {
+  0%,
+  86% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  94%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Text beats: each holds the start column for its stretch of the scroll. */
+.say {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  translate: 0 -50%;
+  width: 100%;
+}
+.say-1 {
+  animation-name: say-1;
+}
+.say-2 {
+  animation-name: say-2;
+}
+.say-3 {
+  animation-name: say-3;
+}
+@keyframes say-1 {
+  0%,
+  20% {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: translateY(-32px);
+    visibility: hidden;
+  }
+}
+@keyframes say-2 {
+  0%,
+  26% {
+    opacity: 0;
+    transform: translateY(32px);
+    visibility: hidden;
+  }
+  33%,
+  46% {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+  54%,
+  100% {
+    opacity: 0;
+    transform: translateY(-32px);
+    visibility: hidden;
+  }
+}
+@keyframes say-3 {
+  0%,
+  54% {
+    opacity: 0;
+    transform: translateY(32px);
+    visibility: hidden;
+  }
+  62%,
+  100% {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+}
+/* The big number rises out of its own baseline (a mask, as in the hero), transform only. */
+.mask-34 {
+  display: block;
+  overflow: clip;
+}
+.reveal-34 {
+  display: block;
+  animation-name: reveal-34;
+}
+@keyframes reveal-34 {
+  0%,
+  27% {
+    transform: translateY(100%);
+  }
+  36%,
+  100% {
+    transform: none;
+  }
+}
+
+/* ---------- Product cards ---------- */
+
+.pack {
+  transition: transform 260ms var(--ease-out);
+}
+.pack-shadow {
+  transition:
+    transform 260ms var(--ease-out),
+    opacity 260ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .pack {
+    transform: translateY(-6px);
+  }
+  .card:hover .pack-shadow {
+    transform: scaleX(0.82);
+    opacity: 0.55;
+  }
+}
+.pack-lifted {
+  filter: drop-shadow(0 6px 8px rgb(18 19 21 / 0.12));
+}
+
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* ---------- Cart drawer ---------- */
+/* Slides from the inline end on transitions (interruptible): in 300ms on the drawer curve, out faster. */
+dialog.drawer {
+  margin: 0;
+  margin-inline-start: auto;
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  height: 100dvh;
+  max-height: none;
+  width: min(28rem, 100vw);
+  max-width: 100vw;
+  padding: 0;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-raised);
+  transform: translateX(-100%);
+  transition:
+    transform 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+dialog.drawer[open] {
+  transform: none;
+  transition-duration: 300ms;
+  transition-timing-function: var(--ease-drawer);
+}
+@starting-style {
+  dialog.drawer[open] {
+    transform: translateX(-100%);
+  }
+}
+dialog.drawer::backdrop {
+  background: rgb(18 19 21 / 0.36);
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+dialog.drawer[open]::backdrop {
+  opacity: 1;
+  transition-duration: 300ms;
+}
+@starting-style {
+  dialog.drawer[open]::backdrop {
+    opacity: 0;
+  }
+}
+/* Lines settle in after the panel, so the drawer reads panel first, contents second. */
+dialog.drawer[open] .drawer-line {
+  transition:
+    opacity 240ms var(--ease-out),
+    transform 240ms var(--ease-out);
+  transition-delay: calc(80ms + var(--i, 0) * 40ms);
+  @starting-style {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+/* ---------- Reduced motion: keep the fades that explain a change, drop every movement ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .press:active,
+  .card:hover .pack,
+  .card:hover .pack-shadow {
+    transform: none;
+  }
+  .enter {
+    @starting-style {
+      transform: none;
+    }
+  }
+  .hero-line > span {
+    animation: none;
+  }
+  .hero-copy,
+  .ln-rise {
+    animation-name: fade-in;
+    animation-duration: 400ms;
+  }
+  dialog.drawer,
+  dialog.drawer[open] {
+    transform: none;
+    transition-property: opacity, overlay, display;
+  }
+  dialog.drawer:not([open]) {
+    opacity: 0;
+  }
+  @starting-style {
+    dialog.drawer[open] {
+      transform: none;
+      opacity: 0;
+    }
+  }
+  dialog.drawer[open] .drawer-line {
+    @starting-style {
+      transform: none;
+    }
+  }
+  ::view-transition-group(*) {
+    animation: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
